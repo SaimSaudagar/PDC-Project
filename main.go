@@ -6,6 +6,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gocolly/colly"
@@ -30,23 +32,23 @@ func inputHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, `<!DOCTYPE html>
 <html>
 <head>
-    <title>Web Crawler	</title>
-    <link rel="stylesheet" href="/static/styles.css">
+    <title>Web Crawler</title>
+    <link rel = "stylesheet" href = "/static/styles.css">
 </head>
 <body>
     <header>
-        <div class="container">
+        <div class = "container">
             <h1>PDC Project - Web Crawler</h1>
         </div>
     </header>
-    <div class="container">
-        <form action="/results" method="post">
-            <label for="item">Enter the item you want to scrape:</label>
-            <input type="text" id="item" name="item" required>
-            <button type="submit">Scrape</button>
+    <div class = "container">
+        <form action = "/results" method = "post">
+            <label for = "item">Enter the item you want to scrape:</label>
+            <input type = "text" id = "item" name = "item" required>
+            <button type = "submit">Scrape</button>
         </form>
     </div>
-	<div class="container">
+	<div class = "container">
         <p>Made with love by Saim, Ashnah and Maaz</p>
         
     </div>
@@ -66,26 +68,26 @@ func resultsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//p := DefaultParser{}
+	//p :=  DefaultParser{}
 	results := Scrape(item)
 
-	fmt.Print(results)
-	// err := writeResultsToCSV(results, "output.csv")
+	//fmt.Print(results)
+	// err :=  writeResultsToCSV(results, "output.csv")
 
 	fmt.Fprint(w, `<!DOCTYPE html>
 <html>
 <head>
-    <title>Web Crwaler</title>
-    <link rel="stylesheet" href="/static/styles.css">
+    <title>Web Crawler</title>
+    <link rel = "stylesheet" href = "/static/styles.css">
 </head>
 <body>
     <header>
-        <div class="container">
+        <div class = "container">
             <h1>Naheed scraper</h1>
         </div>
     </header>
-    <div class="container">
-        <div class="table-container">
+    <div class = "container">
+        <div class = "table-container">
             <table>
                 <tr>
                     <th>URL</th>
@@ -96,13 +98,12 @@ func resultsHandler(w http.ResponseWriter, r *http.Request) {
                 `)
 	for _, result := range results {
 		fmt.Fprintf(w, `<tr>
-	    <td>%s</td>
-	    <td>%s</td>
-	    <td>%s</td>
-	    <td>%s</td>
-	    <td>%d</td>
-	</tr>`,
-			result.url, result.image, result.name, result.price)
+							<td><a href = "%s">%s</a></td>
+							<td><img src="%s" width="100" height="100"></td>
+							<td>%s</td>
+							<td>%s</td>
+						</tr>`,
+			result.url, result.url, result.image, result.name, result.price)
 	}
 	fmt.Fprint(w, `</table>
     </div>
@@ -121,6 +122,37 @@ func main() {
 
 }
 
+func setLimit(item string) int {
+	url := "https://www.naheed.pk/catalogsearch/result/index/?p=1&q=" + item
+	totalPages := ""
+	totalItems := "It will be filled later"
+
+	fin := 0
+
+	c := colly.NewCollector(colly.Async(true))
+	c.OnHTML("div.toolbar.toolbar-products", func(e *colly.HTMLElement) {
+		totalItems = e.ChildText(".toolbar-number")
+
+		//totalPages = totalItems % 32;
+		if len(totalItems) < 3 {
+			fin = 1
+			return
+		}
+		totalPages = strings.TrimSpace(totalItems[3:])
+		x, _ := strconv.Atoi(totalPages)
+
+		if x%32 == 0 {
+			fin = x / 32
+		} else {
+			fin = (x / 32) + 1
+		}
+	})
+
+	c.Visit(url)
+	c.Wait()
+	return fin
+}
+
 func Scrape(item string) []Product {
 
 	// fmt.Print("Enter what do you want to search: ")
@@ -132,17 +164,17 @@ func Scrape(item string) []Product {
 	var Products []Product
 
 	// initializing the list of pages to scrape with an empty slice
-	pagesToScrape := []string{}
+	//pagesToScrape := []string{}
 
 	// the first pagination URL to scrape
-	pageToScrape := "https://www.naheed.pk/catalogsearch/result/index/?p=1&q=hats"
+	pageToScrape := "https://www.naheed.pk/catalogsearch/result/index/?p=1&q=" + item
 	url := "https://www.naheed.pk/"
 
 	// initializing the list of pages discovered with a pageToScrape
-	pagesDiscovered := []string{pageToScrape}
+	//pagesDiscovered := []string{pageToScrape}
 
 	// // max pages to scrape
-	limit := 50
+	limit := setLimit(item)
 	// initializing a Colly instance
 	c := colly.NewCollector(colly.Async(true))
 	c.Limit(&colly.LimitRule{
@@ -153,19 +185,19 @@ func Scrape(item string) []Product {
 	c.UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36"
 
 	//iterating over the list of pagination links to implement the crawling logic
-	c.OnHTML("a.page-numbers", func(e *colly.HTMLElement) {
-		// discovering a new page
-		newPaginationLink := e.Attr("href")
+	// c.OnHTML("a.page-numbers", func(e *colly.HTMLElement) {
+	// 	// discovering a new page
+	// 	newPaginationLink := e.Attr("href")
 
-		// if the page discovered is new
-		if !contains(pagesToScrape, newPaginationLink) {
-			// if the page discovered should be scraped
-			if !contains(pagesDiscovered, newPaginationLink) {
-				pagesToScrape = append(pagesToScrape, newPaginationLink)
-			}
-			pagesDiscovered = append(pagesDiscovered, newPaginationLink)
-		}
-	})
+	// 	// if the page discovered is new
+	// 	if !contains(pagesToScrape, newPaginationLink) {
+	// 		// if the page discovered should be scraped
+	// 		if !contains(pagesDiscovered, newPaginationLink) {
+	// 			pagesToScrape = append(pagesToScrape, newPaginationLink)
+	// 		}
+	// 		pagesDiscovered = append(pagesDiscovered, newPaginationLink)
+	// 	}
+	// })
 
 	// scraping the product data
 	c.OnHTML("div.images-container", func(e *colly.HTMLElement) {
@@ -176,10 +208,12 @@ func Scrape(item string) []Product {
 		product.price = e.ChildText(".price")
 		product.name = e.ChildText(".product-item-link")
 
-		fmt.Println("Url:", product.url)
-		fmt.Println("Image:", product.image)
-		fmt.Println("Price:", product.price)
-		fmt.Println("Name:", product.name)
+		product.price = "Rs." + strings.Split(product.price, "Rs.")[1]
+
+		// fmt.Println("Url:", product.url)
+		// fmt.Println("Image:", product.image)
+		// fmt.Println("Price:", product.price)
+		// fmt.Println("Name:", product.name)
 		Products = append(Products, product)
 	})
 
