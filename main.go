@@ -68,11 +68,7 @@ func resultsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//p :=  DefaultParser{}
 	results := Scrape(item)
-
-	//fmt.Print(results)
-	// err :=  writeResultsToCSV(results, "output.csv")
 
 	fmt.Fprint(w, `<!DOCTYPE html>
 <html>
@@ -133,7 +129,6 @@ func setLimit(item string) int {
 	c.OnHTML("div.toolbar.toolbar-products", func(e *colly.HTMLElement) {
 		totalItems = e.ChildText(".toolbar-number")
 
-		//totalPages = totalItems % 32;
 		if len(totalItems) < 3 {
 			fin = 1
 			return
@@ -154,50 +149,24 @@ func setLimit(item string) int {
 }
 
 func Scrape(item string) []Product {
-
-	// fmt.Print("Enter what do you want to search: ")
-	// fmt.Scan(&item)
-
 	startTime := time.Now()
 
 	// initializing the slice of structs that will contain the scraped data
 	var Products []Product
 
-	// initializing the list of pages to scrape with an empty slice
-	//pagesToScrape := []string{}
-
 	// the first pagination URL to scrape
 	pageToScrape := "https://www.naheed.pk/catalogsearch/result/index/?p=1&q=" + item
 	url := "https://www.naheed.pk/"
-
-	// initializing the list of pages discovered with a pageToScrape
-	//pagesDiscovered := []string{pageToScrape}
 
 	// // max pages to scrape
 	limit := setLimit(item)
 	// initializing a Colly instance
 	c := colly.NewCollector(colly.Async(true))
 	c.Limit(&colly.LimitRule{
-		// limit the parallel requests to 4 request at a time
 		Parallelism: 10,
 	})
 	// setting a valid User-Agent header
 	c.UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36"
-
-	//iterating over the list of pagination links to implement the crawling logic
-	// c.OnHTML("a.page-numbers", func(e *colly.HTMLElement) {
-	// 	// discovering a new page
-	// 	newPaginationLink := e.Attr("href")
-
-	// 	// if the page discovered is new
-	// 	if !contains(pagesToScrape, newPaginationLink) {
-	// 		// if the page discovered should be scraped
-	// 		if !contains(pagesDiscovered, newPaginationLink) {
-	// 			pagesToScrape = append(pagesToScrape, newPaginationLink)
-	// 		}
-	// 		pagesDiscovered = append(pagesDiscovered, newPaginationLink)
-	// 	}
-	// })
 
 	// scraping the product data
 	c.OnHTML("div.images-container", func(e *colly.HTMLElement) {
@@ -209,11 +178,6 @@ func Scrape(item string) []Product {
 		product.name = e.ChildText(".product-item-link")
 
 		product.price = "Rs." + strings.Split(product.price, "Rs.")[1]
-
-		// fmt.Println("Url:", product.url)
-		// fmt.Println("Image:", product.image)
-		// fmt.Println("Price:", product.price)
-		// fmt.Println("Name:", product.name)
 		Products = append(Products, product)
 	})
 
@@ -248,9 +212,7 @@ func Scrape(item string) []Product {
 	// writing the column headers
 	writer.Write(headers)
 
-	// adding each Pokemon product to the CSV output file
 	for _, Product := range Products {
-		// converting a PokemonProduct to an array of strings
 		record := []string{
 			Product.url,
 			Product.image,
