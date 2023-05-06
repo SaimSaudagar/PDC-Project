@@ -13,21 +13,6 @@ import (
 	"github.com/gocolly/colly"
 )
 
-// defining a data structure to store the scraped data
-type Product struct {
-	url, image, name, price string
-}
-
-// it verifies if a string is present in a slice
-func contains(s []string, str string) bool {
-	for _, v := range s {
-		if v == str {
-			return true
-		}
-	}
-
-	return false
-}
 func inputHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, `<!DOCTYPE html>
 <html>
@@ -114,7 +99,7 @@ func main() {
 	http.HandleFunc("/", inputHandler)
 	http.HandleFunc("/results", resultsHandler)
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("."))))
-	log.Fatal(http.ListenAndServe(":9090", nil))
+	log.Fatal(http.ListenAndServe(":3000", nil))
 
 }
 
@@ -126,6 +111,7 @@ func setLimit(item string) int {
 	fin := 0
 
 	c := colly.NewCollector(colly.Async(true))
+
 	c.OnHTML("div.toolbar.toolbar-products", func(e *colly.HTMLElement) {
 		totalItems = e.ChildText(".toolbar-number")
 
@@ -133,6 +119,7 @@ func setLimit(item string) int {
 			fin = 1
 			return
 		}
+
 		totalPages = strings.TrimSpace(totalItems[3:])
 		x, _ := strconv.Atoi(totalPages)
 
@@ -148,6 +135,11 @@ func setLimit(item string) int {
 	return fin
 }
 
+// defining a data structure to store the scraped data
+type Product struct {
+	url, image, name, price string
+}
+
 func Scrape(item string) []Product {
 	startTime := time.Now()
 
@@ -155,15 +147,19 @@ func Scrape(item string) []Product {
 	var Products []Product
 
 	// the first pagination URL to scrape
-	pageToScrape := "https://www.naheed.pk/catalogsearch/result/index/?p=1&q=" + item
+	//pageToScrape := "https://www.naheed.pk/catalogsearch/result/index/?p=1&q=" + item
 	url := "https://www.naheed.pk/"
 
 	// // max pages to scrape
 	limit := setLimit(item)
 	// initializing a Colly instance
 	c := colly.NewCollector(colly.Async(true))
+
 	c.Limit(&colly.LimitRule{
-		Parallelism: 10,
+		Parallelism: 5,
+		//Parallelism: 10,
+		//Parallelism: limit,
+
 	})
 	// setting a valid User-Agent header
 	c.UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36"
@@ -185,13 +181,13 @@ func Scrape(item string) []Product {
 		fmt.Println("Visiting: ", r.URL)
 	})
 
-	// visiting the first page
-	c.Visit(pageToScrape)
+	// visiting each page sequentially
 	for i := 1; i <= limit; i++ {
 		c.Visit(url + "catalogsearch/result/index/?p=" + fmt.Sprint(i) + "&q=" + item)
 	}
 
 	c.Wait()
+
 	// opening the CSV file
 	file, err := os.Create("products_" + item + ".csv")
 	if err != nil {
@@ -212,18 +208,18 @@ func Scrape(item string) []Product {
 	// writing the column headers
 	writer.Write(headers)
 
-	for _, Product := range Products {
+	for _, p := range Products {
 		record := []string{
-			Product.url,
-			Product.image,
-			Product.name,
-			Product.price,
+			p.url,
+			p.image,
+			p.name,
+			p.price,
 		}
 
-		// writing a new CSV record
-		writer.Write(record)
+		writer.Write(record) // writing a new CSV record
 	}
-	defer writer.Flush()
+
+	writer.Flush()
 
 	endTime := time.Now()
 
